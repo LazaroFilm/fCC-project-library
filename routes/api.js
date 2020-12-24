@@ -1,12 +1,12 @@
 /*
-*
-*
-*       Complete the API routing below
-*       
-*       
-*/
+ *
+ *
+ *       Complete the API routing below
+ *
+ *
+ */
 
-'use strict';
+"use strict";
 
 const mongoose = require("mongoose");
 // const mongooseHidden = require("mongoose-hidden")({
@@ -20,15 +20,13 @@ const consoleLog = (...message) => {
   !(process.env.VERBOSE === "true") ? null : console.log(...message);
 };
 
-consoleLog("Hello World")
-
 // Create a Schema for book
 const { Schema } = mongoose;
 const BookSchema = new Schema({
   // _id: {type: String, required: true},
   title: { type: String, required: true },
   comments: { type: Array, required: false, default: [] },
-  commentcount: { type: Number, required: false, default: 0 }
+  commentcount: { type: Number, required: false, default: 0 },
 
   // __v: { select: false }
 });
@@ -39,93 +37,129 @@ const BookSchema = new Schema({
 // Create the Model for Book
 const Book = mongoose.model("Books", BookSchema);
 
-
-module.exports = function(app) {
-
-  app.route('/api/books')
+module.exports = function (app) {
+  app
+    .route("/api/books")
+    // GET Lists ALL books.
     .get((req, res) => {
-      consoleLog("Catalog:")
-       Book.find({}, (error, response) => {
+      consoleLog("_____GET______");
+      Book.find({}, (error, response) => {
         consoleLog(response);
-        res.json(response)
-      })
+        res.json(response);
+      });
       //response will be array of book objects
       //json res format: [{"_id": bookid, "title": book_title, "commentcount": num_of_comments },...]
-
     })
 
-    .post(function(req, res) {
+    // POST Created a new book.
+    .post(function (req, res) {
+      consoleLog("_____POST_____");
       let title = req.body.title;
-      consoleLog("req:", req.body)
+      consoleLog("req:", req.body);
       try {
         if (!title || title == "") {
-          throw("missing required field title")
+          throw "missing required field title";
         }
-      const book = new Book({
-        title
-      })
-      book.save((error, response) => {
-        if(error) throw(error);
-        consoleLog(response);
-        res.json(response)
-      });
+        const book = new Book({
+          title,
+        });
+        book.save((error, response) => {
+          if (error) throw error;
+          consoleLog(response);
+          res.json(response);
+        });
       } catch (error) {
-        console.log("error:", error)
-        res.send(error)
-      };
-      //response will contain new book object including atleast _id and title
+        consoleLog("error:", error);
+        res.send(error);
+      }
+      //response will contain new book object including at least _id and title
     })
 
-    .delete(async(req, res) => {
+    // DELETE Deletes ALL books.
+    .delete(async (req, res) => {
+      consoleLog("_____DELETE_____");
       Book.deleteMany({}, (error, response) => {
-        consoleLog("complete delete successful")
-        res.send("complete delete successful")
-      })
+        consoleLog("complete delete successful");
+        res.send("complete delete successful");
+      });
       //if successful response will be 'complete delete successful'
     });
 
-  app.route('/api/books/:id')
+  app
+    .route("/api/books/:id")
+
+    // GET(id) Looks up a book with id.
     .get((req, res) => {
-      consoleLog("req:", req.body)
+      consoleLog("______GET/id_____");
+      consoleLog("body:", req.body);
+      consoleLog("params:", req.params);
       let bookid = req.params.id;
-      Book.find( {_id: bookid}, (error, response) => {
-        if(error) console.log(error);
-        consoleLog(response);
-        res.json(response)
-      })
+      Book.findOne({ _id: bookid }, (error, response) => {
+        if (error || !response) {
+          consoleLog("no book exists");
+          res.send("no book exists");
+        } else {
+          consoleLog(response);
+          res.json(response);
+        }
+      });
       //json res format: {"_id": bookid, "title": book_title, "comments": [comment,comment,...]}
     })
 
-    .post(async(req, res) => {
-      consoleLog("body", req.body)
-      consoleLog("params:", req.params)
+    // POST(id) Adds a comment to book
+    .post(async (req, res) => {
+      consoleLog("______POST/id_____");
       let bookid = req.params.id;
-      consoleLog("Book id:", bookid)
-      let newComment = req.body.comment;
-      let comments = []
-      await Book.findById( bookid, (error, response) => {
-        consoleLog("response:", response)
-        const oldComments = response.comments
-        consoleLog("olds:", oldComments, "new:", newComment)
-        comments = [...oldComments, newComment]
-      })
-      consoleLog("comment:", comments)
-      Book.findByIdAndUpdate( bookid, { comments }, (error, response) => {
-        console.log("update response:", response)
-      })
-      //json res format same as .get
+      let comment = req.body.comment;
+      let update = {};
+      let errorReport;
+      // console.log("COMMENT:", comment);
+      try {
+        if (!comment) {
+          throw "missing required filed";
+        }
+        await Book.findById(bookid, (error, response) => {
+          if (error || !response) {
+            errorReport = true;
+          } else {
+            consoleLog("response:", response);
+            const comments = [...response.comments, comment];
+            const commentcount = response.commentcount + 1;
+            const __v = response.__v + 1;
+            update = { comments, commentcount, __v };
+            consoleLog("Update:", update);
+          }
+        });
+        if (errorReport) throw "no book exists";
+        Book.findByIdAndUpdate(
+          bookid,
+          update,
+          { new: true },
+          (error, response) => {
+            if (error) {
+              consoleLog("Error:", error);
+              res.send(error);
+            } else {
+              console.log("update response:", response);
+            }
+          }
+        );
+        //json res format same as .get
+      } catch (error) {
+        consoleLog("error:", error);
+      }
     })
-
-    .delete(function(req, res) {
+    // DELETE(id) Deletes sected book.//TODO error if no books with that ID.
+    .delete(function (req, res) {
+      consoleLog("_____DELETE/id_____");
       let bookid = req.params.id;
-      Book.findByIdAndDelete( {_id: bookid }, (error, response) => {
-        if (error) res.send(error)
+      Book.findByIdAndDelete({ _id: bookid }, (error, response) => {
+        if (error) res.send(error);
         else {
           consoleLog("delete successful");
-          res.send("delete successful")
+          res.send("delete successful");
         }
-      })
+      });
       //if successful response will be 'delete successful'
     });
-
 };
