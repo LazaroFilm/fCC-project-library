@@ -109,6 +109,7 @@ module.exports = function (app) {
     // POST(id) Adds a comment to book
     .post(async (req, res) => {
       consoleLog("______POST/id_____");
+      consoleLog(req.body)
       let bookid = req.params.id;
       let comment = req.body.comment;
       let update = {};
@@ -116,18 +117,18 @@ module.exports = function (app) {
       // console.log("COMMENT:", comment);
       try {
         if (!comment) {
-          throw "missing required filed";
+          throw "missing required field comment";
         }
         await Book.findById(bookid, (error, response) => {
-          if (error || !response) {
+          if (!response) {
             errorReport = true;
           } else {
-            consoleLog("response:", response);
+            // consoleLog("response:", response);
             const comments = [...response.comments, comment];
             const commentcount = response.commentcount + 1;
             const __v = response.__v + 1;
             update = { comments, commentcount, __v };
-            consoleLog("Update:", update);
+            // consoleLog("Update:", update);
           }
         });
         if (errorReport) throw "no book exists";
@@ -140,13 +141,15 @@ module.exports = function (app) {
               consoleLog("Error:", error);
               res.send(error);
             } else {
-              console.log("update response:", response);
+              consoleLog("updated:", response);
+              res.json(response);
             }
           }
         );
         //json res format same as .get
       } catch (error) {
         consoleLog("error:", error);
+        res.send(error)
       }
     })
     // DELETE(id) Deletes sected book.//TODO error if no books with that ID.
@@ -154,9 +157,13 @@ module.exports = function (app) {
       consoleLog("_____DELETE/id_____");
       let bookid = req.params.id;
       Book.findByIdAndDelete({ _id: bookid }, (error, response) => {
-        if (error) res.send(error);
-        else {
-          consoleLog("delete successful");
+        if (error) {
+          res.send(error);
+        } else if (!response) {
+          consoleLog("no book exists");
+          res.send("no book exists")
+        } else {
+          consoleLog("delete successful", response);
           res.send("delete successful");
         }
       });
